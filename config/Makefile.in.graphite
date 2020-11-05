@@ -9,7 +9,7 @@ CXXFLAGS+=$(OPTFLAGS)
 
 # Python
 #PYTHON=python
-PYTHON=/share/apps/anaconda3/2020.07/bin/python
+PYTHON=/share/apps/anaconda3/5.2.0/bin/python
 
 # Lua front-end
 LUA_CFLAGS=`pkg-config lua52 --cflags`
