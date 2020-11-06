@@ -88,6 +88,28 @@ void copy_subgrid(float* restrict dst,
             dst[iy*stride1+ix] = src[iy*stride2+ix];
 }
 
+static inline
+void copy_subgrid_allfield(float* restrict dst,
+                           const float* restrict src,
+                           int nx, int ny, int c1, int c2, int stride1, int stride2, int nfield)
+{
+    for (int k = 0; k < nfield; ++k) {
+        copy_subgrid(dst+k*c1, src+k*c2, nx, ny, stride1, stride2);
+    }
+}
+
+static inline
+void print_grid(const float* restrict u, int nx, int ny)
+{
+    for (int ix = 0; ix < nx; ++ix) {
+        for (int iy = 0; iy < ny; ++iy) {
+            printf("%g ", u[iy*nx+ix]);
+        }
+        printf("\n");
+    }
+    printf("\n");
+}
+
 void central2d_periodic(float* restrict u, const float* restrict src,
                         int nx, int ny, int ng, int partx, int party, int px, int py, int nfield)
 {
@@ -394,13 +416,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
     bool done = false;
     float t = 0;
 
-    for (int ix = 0; ix < nx_all; ++ix) {
-        for (int iy = 0; iy < ny_all; ++iy) {
-            printf("%g ", u[iy*nx_all+ix]);
-        }
-        printf("\n");
-    }
-    printf("\n");
+    print_grid(u, nx_all, ny_all);
 
     while (!done) {
         float cxy[2] = {1.0e-15f, 1.0e-15f};
@@ -423,19 +439,10 @@ int central2d_xrun(float* restrict u, float* restrict v,
             float* pg  = (float*) malloc(pN* sizeof(float));
             float* pscratch  = (float*) malloc((6*sx_all)* sizeof(float));
 
-            for (int k = 0; k < nfield; ++k) {
-                copy_subgrid(pu+k*pc+ng*sx_all+ng,u+k*c+nx_all*(ng+py*sy)+(ng+px*sx),sx,sy,sx_all,nx_all);
-            }
-	    #pragma opm barrier
+            
+	          copy_subgrid_allfield(pu+ng*sx_all+ng,u+nx_all*(ng+py*sy)+(ng+px*sx),sx,sy,pc,c,sx_all,nx_all,nfield);
 
-            for (int ix = 0; ix < sx_all; ++ix) {
-              for (int iy = 0; iy < sy_all; ++iy) {
-                printf("%g ", pu[iy*sx_all+ix]);
-              }
-              printf("\n");
-            }
-            printf("\n");
-            #pragma omp barrier
+            print_grid(pu, sx_all, sy_all);
 
             central2d_periodic(pu, u, sx, sy, ng, partx, party, px, py, nfield);
 
@@ -459,9 +466,8 @@ int central2d_xrun(float* restrict u, float* restrict v,
                           dt, dx, dy);
             #pragma omp barrier
 
-            for (int k = 0; k < nfield; ++k) {
-                copy_subgrid(u+k*c+nx_all*(ng+py*sy)+(ng+px*sx),pu+k*pc+ng*sx_all+ng,sx,sy,sx_all,nx_all);
-            }
+          
+            copy_subgrid_allfield(u+nx_all*(ng+py*sy)+(ng+px*sx),pu+ng*sx_all+ng,sx,sy,c,pc,nx_all,sx_all,nfield);
             
             free(pscratch);
             free(pg);
