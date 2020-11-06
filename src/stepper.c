@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <omp.h>
+#include <stdio.h>
 
 //ldoc on
 /**
@@ -392,6 +393,15 @@ int central2d_xrun(float* restrict u, float* restrict v,
     int pN  = nfield * pc;
     bool done = false;
     float t = 0;
+
+    for (int ix = 0; ix < nx_all; ++ix) {
+        for (int iy = 0; iy < ny_all; ++iy) {
+            printf("%g ", u[iy*nx_all+ix]);
+        }
+        printf("\n");
+    }
+    printf("\n");
+
     while (!done) {
         float cxy[2] = {1.0e-15f, 1.0e-15f};
         float dt = cfl / fmaxf(cxy[0]/dx, cxy[1]/dy);
@@ -403,6 +413,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
         #pragma omp parallel
         {
             int j = omp_get_thread_num();
+            printf("%d\n\n",j);
             int px = j % partx;
             int py = j/party;
 
@@ -415,9 +426,26 @@ int central2d_xrun(float* restrict u, float* restrict v,
             for (int k = 0; k < nfield; ++k) {
                 copy_subgrid(pu+k*pc+ng*sx_all+ng,u+k*c+nx_all*(ng+py*sy)+(ng+px*sx),sx,sy,sx_all,nx_all);
             }
+
+            for (int ix = 0; ix < sx_all; ++ix) {
+              for (int iy = 0; iy < sy_all; ++iy) {
+                printf("%g ", pu[iy*sx_all+ix]);
+              }
+              printf("\n");
+            }
+            printf("\n");
             #pragma omp barrier
 
             central2d_periodic(pu, u, sx, sy, ng, partx, party, px, py, nfield);
+
+            // for (int ix = 0; ix < sx_all; ++ix) {
+            //   for (int iy = 0; iy < sy_all; ++iy) {
+            //     printf("%g ", pu[iy*sx_all+ix]);
+            //   }
+            //   printf("\n");
+            // }
+            // printf("\n");
+
             speed(cxy, pu, sx_all * sy_all, sx_all * sy_all);
         
             central2d_step(pu, pv, pscratch, pf, pg,
