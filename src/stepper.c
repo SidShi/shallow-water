@@ -79,33 +79,42 @@ int central2d_offset(central2d_t* sim, int k, int ix, int iy)
 static inline
 void copy_subgrid(float* restrict dst,
                   const float* restrict src,
-                  int nx, int ny, int stride)
+                  int nx, int ny, int stride1, int stride2)
 {
     for (int iy = 0; iy < ny; ++iy)
         for (int ix = 0; ix < nx; ++ix)
-            dst[iy*stride+ix] = src[iy*stride+ix];
+            dst[iy*stride1+ix] = src[iy*stride2+ix];
 }
 
-void central2d_periodic(float* restrict u,
-                        int nx, int ny, int ng, int nfield)
+void central2d_periodic(float* restrict u, const float* restrict src,
+                        int nx, int ny, int ng, int partx, int party, int px, int py, int nfield)
 {
     // Stride and number per field
     int s = nx + 2*ng;
+    int s2 = nx*partx + 2*ng;
     int field_stride = (ny+2*ng)*s;
+    int field_stride2 = (ny*party+2*ng)*s2;
 
     // Offsets of left, right, top, and bottom data blocks and ghost blocks
     int l = nx,   lg = 0;
     int r = ng,   rg = nx+ng;
-    int b = ny*s, bg = 0;
-    int t = ng*s, tg = (nx+ng)*s;
+    int b = ny*s2, bg = 0;
+    int t = ng*s2, tg = (nx+ng)*s;
 
     // Copy data into ghost cells on each side
     for (int k = 0; k < nfield; ++k) {
         float* uk = u + k*field_stride;
-        copy_subgrid(uk+lg, uk+l, ng, ny+2*ng, s);
-        copy_subgrid(uk+rg, uk+r, ng, ny+2*ng, s);
-        copy_subgrid(uk+tg, uk+t, nx+2*ng, ng, s);
-        copy_subgrid(uk+bg, uk+b, nx+2*ng, ng, s);
+        float* srck = src + k*field_stride2;
+
+        int modxl = (px == 0? partx : px);
+        int modxr = (px == partx-1? 0 : px+1);
+        int modyb = (py == 0? party : py);
+        int modyt = (py == party-1? 0 : py+1);
+
+        copy_subgrid(uk+lg, srck+l*modxl, ng, ny+2*ng, s, s2);
+        copy_subgrid(uk+rg, srck+r+l*modxr, ng, ny+2*ng, s, s2);
+        copy_subgrid(uk+bg, srck+b*modyb, nx+2*ng, ng, s, s2);
+        copy_subgrid(uk+tg, srck+t+b*modyt, nx+2*ng, ng, s, s2);
     }
 }
 
@@ -369,25 +378,69 @@ int central2d_xrun(float* restrict u, float* restrict v,
     int nstep = 0;
     int nx_all = nx + 2*ng;
     int ny_all = ny + 2*ng;
+    int c = nx_all * ny_all;
+    int N = nfield * c;
+    int partx = 2;
+    int party = 2;
+    omp_set_num_threads(partx*party);
+    int sx = nx/partx;
+    int sy = ny/party;
+    int sx_all = sx + 2*ng;
+    int sy_all = sy + 2*ng;
+    int pc = sx_all * sy_all;
+    int pN  = nfield * pc;
     bool done = false;
     float t = 0;
     while (!done) {
         float cxy[2] = {1.0e-15f, 1.0e-15f};
-        central2d_periodic(u, nx, ny, ng, nfield);
-        speed(cxy, u, nx_all * ny_all, nx_all * ny_all);
         float dt = cfl / fmaxf(cxy[0]/dx, cxy[1]/dy);
         if (t + 2*dt >= tfinal) {
             dt = (tfinal-t)/2;
             done = true;
         }
-        central2d_step(u, v, scratch, f, g,
-                       0, nx+4, ny+4, ng-2,
-                       nfield, flux, speed,
-                       dt, dx, dy);
-        central2d_step(v, u, scratch, f, g,
-                       1, nx, ny, ng,
-                       nfield, flux, speed,
-                       dt, dx, dy);
+
+        #pragma omp parallel
+        {
+            int j = omp_get_thread_num();
+            int px = j % partx;
+            int py = j/party;
+
+            float* pu, pv, pf, pg, pscratch;
+            pu  = (float*) malloc(pN* sizeof(float));
+            pv  = (float*) malloc(pN* sizeof(float));
+            pf  = (float*) malloc(pN* sizeof(float));
+            pg  = (float*) malloc(pN* sizeof(float));
+            pscratch  = (float*) malloc((6*sx_all) sizeof(float));
+
+            for (int k = 0; k < nfield; ++k) {
+                copy_subgrid(pu+k*pC+ng*sx_all+ng,u+k*c+nx_all*(ng+py*sy)+(ng+px*sx),sx,sy,sx_all,nx_all);
+            }
+            #pragma omp barrier
+
+            central2d_periodic(pu, u, sx, sy, ng, partx, party, px, py, nfield);
+            speed(cxy, pu, sx_all * sy_all, sx_all * sy_all);
+        
+            central2d_step(pu, pv, pscratch, pf, pg,
+                          0, sx+4, sy+4, ng-2,
+                          nfield, flux, speed,
+                          dt, dx, dy);
+            central2d_step(pv, pu, pscratch, pf, pg,
+                          1, sx, sy, ng,
+                          nfield, flux, speed,
+                          dt, dx, dy);
+            #pragma omp barrier
+
+            for (int k = 0; k < nfield; ++k) {
+                copy_subgrid(u+k*c+nx_all*(ng+py*sy)+(ng+px*sx),pu+k*pC+ng*sx_all+ng,sx,sy,sx_all,nx_all);
+            }
+            
+            free(pscratch);
+            free(pg);
+            free(pf);
+            free(pv);
+            free(pu);
+        }
+        
         t += 2*dt;
         nstep += 2;
     }
