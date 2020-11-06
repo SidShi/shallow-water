@@ -426,6 +426,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
             for (int k = 0; k < nfield; ++k) {
                 copy_subgrid(pu+k*pc+ng*sx_all+ng,u+k*c+nx_all*(ng+py*sy)+(ng+px*sx),sx,sy,sx_all,nx_all);
             }
+	    #pragma opm barrier
 
             for (int ix = 0; ix < sx_all; ++ix) {
               for (int iy = 0; iy < sy_all; ++iy) {
