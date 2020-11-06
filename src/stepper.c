@@ -5,6 +5,7 @@
 #include <math.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <omp.h>
 
 //ldoc on
 /**
@@ -104,7 +105,7 @@ void central2d_periodic(float* restrict u, const float* restrict src,
     // Copy data into ghost cells on each side
     for (int k = 0; k < nfield; ++k) {
         float* uk = u + k*field_stride;
-        float* srck = src + k*field_stride2;
+        const float* srck = src + k*field_stride2;
 
         int modxl = (px == 0? partx : px);
         int modxr = (px == partx-1? 0 : px+1);
@@ -405,15 +406,14 @@ int central2d_xrun(float* restrict u, float* restrict v,
             int px = j % partx;
             int py = j/party;
 
-            float* pu, pv, pf, pg, pscratch;
-            pu  = (float*) malloc(pN* sizeof(float));
-            pv  = (float*) malloc(pN* sizeof(float));
-            pf  = (float*) malloc(pN* sizeof(float));
-            pg  = (float*) malloc(pN* sizeof(float));
-            pscratch  = (float*) malloc((6*sx_all) sizeof(float));
+            float* pu  = (float*) malloc(pN* sizeof(float));
+            float* pv  = (float*) malloc(pN* sizeof(float));
+            float* pf  = (float*) malloc(pN* sizeof(float));
+            float* pg  = (float*) malloc(pN* sizeof(float));
+            float* pscratch  = (float*) malloc((6*sx_all)* sizeof(float));
 
             for (int k = 0; k < nfield; ++k) {
-                copy_subgrid(pu+k*pC+ng*sx_all+ng,u+k*c+nx_all*(ng+py*sy)+(ng+px*sx),sx,sy,sx_all,nx_all);
+                copy_subgrid(pu+k*pc+ng*sx_all+ng,u+k*c+nx_all*(ng+py*sy)+(ng+px*sx),sx,sy,sx_all,nx_all);
             }
             #pragma omp barrier
 
@@ -431,7 +431,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
             #pragma omp barrier
 
             for (int k = 0; k < nfield; ++k) {
-                copy_subgrid(u+k*c+nx_all*(ng+py*sy)+(ng+px*sx),pu+k*pC+ng*sx_all+ng,sx,sy,sx_all,nx_all);
+                copy_subgrid(u+k*c+nx_all*(ng+py*sy)+(ng+px*sx),pu+k*pc+ng*sx_all+ng,sx,sy,sx_all,nx_all);
             }
             
             free(pscratch);
