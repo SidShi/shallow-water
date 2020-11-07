@@ -175,7 +175,7 @@ int run_sim(lua_State* L)
     int nx       = luaL_optinteger(L, 6, 200);
     int ny       = luaL_optinteger(L, 7, nx);
     int vskip    = luaL_optinteger(L, 8, 1);
-    int frames   = luaL_optinteger(L, 9, 2);
+    int frames   = luaL_optinteger(L, 9, 50);
     const char* fname = luaL_optstring(L, 10, "sim.out");
     lua_pop(L, 9);
 

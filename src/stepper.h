@@ -108,5 +108,6 @@ int central2d_run(central2d_t* sim, float tfinal);
  */
 void central2d_periodic(float* u, const float* src, int nx, int ny, int ng, int partx, int party, int px, int py, int nfield);
 
+void central2d_periodic_full(float* u, int nx, int ny, int ng, int nfield);
 //ldoc off
 #endif /* STEPPER_H */

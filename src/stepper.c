@@ -99,15 +99,38 @@ void copy_subgrid_allfield(float* restrict dst,
 }
 
 static inline
-void print_grid(const float* restrict u, int nx, int ny)
+void print_grid(const float* restrict u, int nx, int ny, int stride)
 {
     for (int ix = 0; ix < nx; ++ix) {
         for (int iy = 0; iy < ny; ++iy) {
-            printf("%g ", u[iy*nx+ix]);
+            printf("%.2f ", u[iy*stride+ix]);
         }
         printf("\n");
     }
     printf("\n");
+}
+
+void central2d_periodic_full(float* restrict u,
+                        int nx, int ny, int ng, int nfield)
+{
+    // Stride and number per field
+    int s = nx + 2*ng;
+    int field_stride = (ny+2*ng)*s;
+
+    // Offsets of left, right, top, and bottom data blocks and ghost blocks
+    int l = nx,   lg = 0;
+    int r = ng,   rg = nx+ng;
+    int b = ny*s, bg = 0;
+    int t = ng*s, tg = (nx+ng)*s;
+
+    // Copy data into ghost cells on each side
+    for (int k = 0; k < nfield; ++k) {
+        float* uk = u + k*field_stride;
+        copy_subgrid(uk+lg, uk+l, ng, ny+2*ng, s, s);
+        copy_subgrid(uk+rg, uk+r, ng, ny+2*ng, s, s);
+        copy_subgrid(uk+tg, uk+t, nx+2*ng, ng, s, s);
+        copy_subgrid(uk+bg, uk+b, nx+2*ng, ng, s, s);
+    }
 }
 
 void central2d_periodic(float* restrict u, const float* restrict src,
@@ -119,11 +142,6 @@ void central2d_periodic(float* restrict u, const float* restrict src,
     int field_stride = (ny+2*ng)*s;
     int field_stride2 = (ny*party+2*ng)*s2;
 
-    // Offsets of left, right, top, and bottom data blocks and ghost blocks
-    int l = nx,   lg = 0;
-    int r = ng,   rg = nx+ng;
-    int b = ny*s2, bg = 0;
-    int t = ng*s2, tg = (nx+ng)*s;
 
     // Copy data into ghost cells on each side
     for (int k = 0; k < nfield; ++k) {
@@ -135,10 +153,26 @@ void central2d_periodic(float* restrict u, const float* restrict src,
         int modyb = (py == 0? party : py);
         int modyt = (py == party-1? 0 : py+1);
 
-        copy_subgrid(uk+lg, srck+l*modxl, ng, ny+2*ng, s, s2);
-        copy_subgrid(uk+rg, srck+r+l*modxr, ng, ny+2*ng, s, s2);
-        copy_subgrid(uk+bg, srck+b*modyb, nx+2*ng, ng, s, s2);
-        copy_subgrid(uk+tg, srck+t+b*modyt, nx+2*ng, ng, s, s2);
+        copy_subgrid(uk, srck+modyb*ny*s2+modxl*nx, ng, ng, s, s2);
+        copy_subgrid(uk+ng*s, srck+(ng+py*ny)*s2+modxl*nx, ng, ny, s, s2);
+        copy_subgrid(uk+(ng+ny)*s, srck+(ng+modyt*ny)*s2+modxl*nx, ng, ng, s, s2);
+
+        copy_subgrid(uk+ng, srck+modyb*ny*s2+px*nx+ng, nx, ng, s, s2);
+        copy_subgrid(uk+ng*s+ng, srck+(ng+py*ny)*s2+px*nx+ng, nx, ny, s, s2);
+        copy_subgrid(uk+(ng+ny)*s+ng, srck+(ng+modyt*ny)*s2+px*nx+ng, nx, ng, s, s2);
+
+        copy_subgrid(uk+ng+nx, srck+modyb*ny*s2+modxr*nx+ng, ng, ng, s, s2);
+        copy_subgrid(uk+ng*s+nx+ng, srck+(ng+py*ny)*s2+modxr*nx+ng, ng, ny, s, s2);
+        copy_subgrid(uk+(ng+ny)*s+ng+nx, srck+(ng+modyt*ny)*s2+modxr*nx+ng, ng, ng, s, s2);
+
+        // copy_subgrid(uk, srck+py*ny*s2+nx*modxl, ng, ny+2*ng, s, s2);
+        // print_grid(uk,nx+2*ng,ny+2*ng);
+        // copy_subgrid(uk+nx+ng, srck+py*ny*s2+ng+nx*modxr, ng, ny+2*ng, s, s2);
+        // print_grid(uk,nx+2*ng,ny+2*ng);
+        // copy_subgrid(uk+(nx+ng)*s, srck+(ny*modyt+ng)*s2+px*nx, nx+2*ng, ng, s, s2);
+        // print_grid(uk,nx+2*ng,ny+2*ng);
+        // copy_subgrid(uk, srck+ny*s2*modyb+px*nx, nx+2*ng, ng, s, s2);
+        // print_grid(uk,nx+2*ng,ny+2*ng);
     }
 }
 
@@ -416,7 +450,17 @@ int central2d_xrun(float* restrict u, float* restrict v,
     bool done = false;
     float t = 0;
 
-    print_grid(u, nx_all, ny_all);
+    // central2d_periodic_full(u, nx, ny, ng, nfield);
+    // print_grid(u, nx_all, ny_all);
+    //
+    // float* tu  = (float*) malloc(pN* sizeof(float));
+    // copy_subgrid_allfield(tu+ng*sx_all+ng,u+nx_all*(ng+0*sy)+(ng+1*sx),sx,sy,pc,c,sx_all,nx_all,nfield);
+    // central2d_periodic(tu, u, sx, sy, ng, partx, party, 0, 0, nfield);
+    // print_grid(tu, sx_all, sy_all);
+    // free(tu);
+
+    // int pt = 100;
+    // print_grid(u+nx_all*(ng+pt)+ng+pt, 10, 10, nx_all);
 
     while (!done) {
         float cxy[2] = {1.0e-15f, 1.0e-15f};
@@ -429,7 +473,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
         #pragma omp parallel
         {
             int j = omp_get_thread_num();
-            printf("%d\n\n",j);
+            // printf("%d\n",j);
             int px = j % partx;
             int py = j/party;
 
@@ -439,12 +483,17 @@ int central2d_xrun(float* restrict u, float* restrict v,
             float* pg  = (float*) malloc(pN* sizeof(float));
             float* pscratch  = (float*) malloc((6*sx_all)* sizeof(float));
 
-            
-	          copy_subgrid_allfield(pu+ng*sx_all+ng,u+nx_all*(ng+py*sy)+(ng+px*sx),sx,sy,pc,c,sx_all,nx_all,nfield);
 
-            print_grid(pu, sx_all, sy_all);
+	          // copy_subgrid_allfield(pu+ng*sx_all+ng,u+nx_all*(ng+py*sy)+(ng+px*sx),sx,sy,pc,c,sx_all,nx_all,nfield);
+
 
             central2d_periodic(pu, u, sx, sy, ng, partx, party, px, py, nfield);
+
+            if (j == 2) {
+                print_grid(pu, sx_all, sy_all, sx_all);
+            }
+
+            // print_grid(pu,sx_all,sy_all);
 
             // for (int ix = 0; ix < sx_all; ++ix) {
             //   for (int iy = 0; iy < sy_all; ++iy) {
@@ -455,7 +504,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
             // printf("\n");
 
             speed(cxy, pu, sx_all * sy_all, sx_all * sy_all);
-        
+
             central2d_step(pu, pv, pscratch, pf, pg,
                           0, sx+4, sy+4, ng-2,
                           nfield, flux, speed,
@@ -466,19 +515,24 @@ int central2d_xrun(float* restrict u, float* restrict v,
                           dt, dx, dy);
             #pragma omp barrier
 
-          
+
             copy_subgrid_allfield(u+nx_all*(ng+py*sy)+(ng+px*sx),pu+ng*sx_all+ng,sx,sy,c,pc,nx_all,sx_all,nfield);
-            
+
             free(pscratch);
             free(pg);
             free(pf);
             free(pv);
             free(pu);
         }
-        
+
+        // central2d_periodic_full(u, nx, ny, ng, nfield);
+
         t += 2*dt;
         nstep += 2;
+        // print_grid(u+nx_all*ng+ng+c, nx, ny, nx_all);
     }
+    // int pt = 40;
+    // print_grid(u+nx_all*(ng+pt)+ng+pt, 20, 20, nx_all);
     return nstep;
 }
 
