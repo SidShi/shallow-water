@@ -409,6 +409,26 @@ void central2d_step(float* restrict u, float* restrict v,
                       nx_all, ny_all, nfield);
 }
 
+static
+void central2d_step_batch(float* restrict u, float* restrict v,
+                    float* restrict scratch,
+                    float* restrict f,
+                    float* restrict g,
+                    int nx, int ny, int ng,
+                    int nfield, flux_t flux, speed_t speed,
+                    float dt, float dx, float dy, int tbatch)
+{
+    for (int b = 0; b < tbatch; ++b) {
+        central2d_step(u, v, scratch, f, g,
+                      0, nx+4, ny+4, ng-2,
+                      nfield, flux, speed,
+                      dt, dx, dy);
+        central2d_step(v, u, scratch, f, g,
+                      1, nx, ny, ng,
+                      nfield, flux, speed,
+                      dt, dx, dy);
+    }
+}
 
 /**
  * ### Advance a fixed time
@@ -434,6 +454,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
                    float tfinal, float dx, float dy, float cfl)
 {
     int nstep = 0;
+    int tbatch = 1;
     int nx_all = nx + 2*ng;
     int ny_all = ny + 2*ng;
     int c = nx_all * ny_all;
@@ -443,8 +464,8 @@ int central2d_xrun(float* restrict u, float* restrict v,
     omp_set_num_threads(partx*party);
     int sx = nx/partx;
     int sy = ny/party;
-    int sx_all = sx + 2*ng;
-    int sy_all = sy + 2*ng;
+    int sx_all = sx + 2*tbatch*ng;
+    int sy_all = sy + 2*tbatch*ng;
     int pc = sx_all * sy_all;
     int pN  = nfield * pc;
     bool done = false;
@@ -470,8 +491,8 @@ int central2d_xrun(float* restrict u, float* restrict v,
         float dt = cfl / fmaxf(cxy[0]/dx, cxy[1]/dy);
         // printf("%g\n", fmaxf(cxy[0]/dx, cxy[1]/dy));
         // printf("%.2g ",dt);
-        if (t + 2*dt >= tfinal) {
-            dt = (tfinal-t)/2;
+        if (t + 2*tbatch*dt >= tfinal) {
+            dt = (tfinal-t)/2/tbatch;
             done = true;
         }
 
@@ -492,7 +513,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
 	          // copy_subgrid_allfield(pu+ng*sx_all+ng,u+nx_all*(ng+py*sy)+(ng+px*sx),sx,sy,pc,c,sx_all,nx_all,nfield);
 
 
-            central2d_periodic(pu, u, sx, sy, ng, partx, party, px, py, nfield);
+            central2d_periodic(pu, u, sx, sy, tbatch*ng, partx, party, px, py, nfield);
 
             // if (j == 2) {
             //     print_grid(pu, sx_all, sy_all, sx_all);
@@ -501,18 +522,24 @@ int central2d_xrun(float* restrict u, float* restrict v,
 
             // print_grid(pu,sx_all,sy_all);
 
-            central2d_step(pu, pv, pscratch, pf, pg,
-                          0, sx+4, sy+4, ng-2,
-                          nfield, flux, speed,
-                          dt, dx, dy);
-            central2d_step(pv, pu, pscratch, pf, pg,
-                          1, sx, sy, ng,
-                          nfield, flux, speed,
-                          dt, dx, dy);
+            central2d_step_batch(pu, pv, pscratch, pf, pg,
+                                 sx, sy, tbatch*ng,
+                                 nfield, flux, speed,
+                                 dt, dx, dy, tbatch);
+
+            // central2d_step(pu, pv, pscratch, pf, pg,
+            //               0, sx+4, sy+4, ng-2,
+            //               nfield, flux, speed,
+            //               dt, dx, dy);
+            // central2d_step(pv, pu, pscratch, pf, pg,
+            //               1, sx, sy, ng,
+            //               nfield, flux, speed,
+            //               dt, dx, dy);
             #pragma omp barrier
 
 
-            copy_subgrid_allfield(u+nx_all*(ng+py*sy)+(ng+px*sx),pu+ng*sx_all+ng,sx,sy,c,pc,nx_all,sx_all,nfield);
+            copy_subgrid_allfield(u+nx_all*(ng+py*sy)+(ng+px*sx),pu+tbatch*ng*sx_all+ng*tbatch,
+                                  sx,sy,c,pc,nx_all,sx_all,nfield);
 
             free(pu);
         }
@@ -522,8 +549,8 @@ int central2d_xrun(float* restrict u, float* restrict v,
 
         // central2d_periodic_full(u, nx, ny, ng, nfield);
 
-        t += 2*dt;
-        nstep += 2;
+        t += 2*dt*tbatch;
+        nstep += 2*tbatch;
         // print_grid(u+nx_all*ng+ng+c, nx, ny, nx_all);
     }
     // int pt = 40;
