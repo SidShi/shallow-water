@@ -526,7 +526,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
             // print_grid(pu,sx_all,sy_all);
 
             central2d_step_batch(pu, pv, pscratch, pf, pg,
-                                 sx, sy, ng,
+                                 sx, sy, ng*tbatch,
                                  nfield, flux, speed,
                                  dt, dx, dy);
 
