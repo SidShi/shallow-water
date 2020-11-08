@@ -15,8 +15,6 @@
  * ### Structure allocation
  */
 
-static const int tbatch = 2;
-
 central2d_t* central2d_init(float w, float h, int nx, int ny,
                             int nfield, flux_t flux, speed_t speed,
                             float cfl)
@@ -136,7 +134,7 @@ void central2d_periodic_full(float* restrict u,
 }
 
 void central2d_periodic(float* restrict u, const float* restrict src,
-                        int nx, int ny, int ng, int partx, int party, int px, int py, int nfield)
+                        int nx, int ny, int ng, int partx, int party, int px, int py, int nfield, int tbatch)
 {
     // Stride and number per field
     int ngu = ng*tbatch;
@@ -420,7 +418,7 @@ void central2d_step_batch(float* restrict u, float* restrict v,
                     float* restrict g,
                     int nx, int ny, int ng,
                     int nfield, flux_t flux, speed_t speed,
-                    float dt, float dx, float dy)
+                    float dt, float dx, float dy, int tbatch)
 {
     for (int b = 0; b < tbatch; ++b) {
         central2d_step(u, v, scratch, f, g,
@@ -458,6 +456,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
                    float tfinal, float dx, float dy, float cfl)
 {
     int nstep = 0;
+    int tbatch = 3;
     int nx_all = nx + 2*ng;
     int ny_all = ny + 2*ng;
     int c = nx_all * ny_all;
@@ -516,7 +515,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
 	          // copy_subgrid_allfield(pu+ng*sx_all+ng,u+nx_all*(ng+py*sy)+(ng+px*sx),sx,sy,pc,c,sx_all,nx_all,nfield);
 
 
-            central2d_periodic(pu, u, sx, sy, ng, partx, party, px, py, nfield);
+            central2d_periodic(pu, u, sx, sy, ng, partx, party, px, py, nfield, tbatch);
 
             // if (j == 2) {
             //     print_grid(pu, sx_all, sy_all, sx_all);
@@ -528,7 +527,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
             central2d_step_batch(pu, pv, pscratch, pf, pg,
                                  sx, sy, ng*tbatch,
                                  nfield, flux, speed,
-                                 dt, dx, dy);
+                                 dt, dx, dy, tbatch);
 
             // central2d_step(pu, pv, pscratch, pf, pg,
             //               0, sx+4, sy+4, ng-2,
