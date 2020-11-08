@@ -464,7 +464,12 @@ int central2d_xrun(float* restrict u, float* restrict v,
 
     while (!done) {
         float cxy[2] = {1.0e-15f, 1.0e-15f};
+
+        speed(cxy, u, nx_all * ny_all, nx_all * ny_all);
+
         float dt = cfl / fmaxf(cxy[0]/dx, cxy[1]/dy);
+        // printf("%g\n", fmaxf(cxy[0]/dx, cxy[1]/dy));
+        // printf("%.2g ",dt);
         if (t + 2*dt >= tfinal) {
             dt = (tfinal-t)/2;
             done = true;
@@ -477,11 +482,11 @@ int central2d_xrun(float* restrict u, float* restrict v,
             int px = j % partx;
             int py = j/party;
 
-            float* pu  = (float*) malloc(pN* sizeof(float));
-            float* pv  = (float*) malloc(pN* sizeof(float));
-            float* pf  = (float*) malloc(pN* sizeof(float));
-            float* pg  = (float*) malloc(pN* sizeof(float));
-            float* pscratch  = (float*) malloc((6*sx_all)* sizeof(float));
+            float* pu  = (float*) malloc((4*pN + 6*sx_all)* sizeof(float));
+            float* pv  = pu + pN;
+            float* pf  = pu + 2*pN;
+            float* pg  = pu + 3*pN;
+            float* pscratch = pu + 4*pN;
 
 
 	          // copy_subgrid_allfield(pu+ng*sx_all+ng,u+nx_all*(ng+py*sy)+(ng+px*sx),sx,sy,pc,c,sx_all,nx_all,nfield);
@@ -489,21 +494,12 @@ int central2d_xrun(float* restrict u, float* restrict v,
 
             central2d_periodic(pu, u, sx, sy, ng, partx, party, px, py, nfield);
 
-            if (j == 2) {
-                print_grid(pu, sx_all, sy_all, sx_all);
-            }
+            // if (j == 2) {
+            //     print_grid(pu, sx_all, sy_all, sx_all);
+            // }
+
 
             // print_grid(pu,sx_all,sy_all);
-
-            // for (int ix = 0; ix < sx_all; ++ix) {
-            //   for (int iy = 0; iy < sy_all; ++iy) {
-            //     printf("%g ", pu[iy*sx_all+ix]);
-            //   }
-            //   printf("\n");
-            // }
-            // printf("\n");
-
-            speed(cxy, pu, sx_all * sy_all, sx_all * sy_all);
 
             central2d_step(pu, pv, pscratch, pf, pg,
                           0, sx+4, sy+4, ng-2,
@@ -518,12 +514,11 @@ int central2d_xrun(float* restrict u, float* restrict v,
 
             copy_subgrid_allfield(u+nx_all*(ng+py*sy)+(ng+px*sx),pu+ng*sx_all+ng,sx,sy,c,pc,nx_all,sx_all,nfield);
 
-            free(pscratch);
-            free(pg);
-            free(pf);
-            free(pv);
             free(pu);
         }
+
+
+        // print_grid(u,20,20,nx_all);
 
         // central2d_periodic_full(u, nx, ny, ng, nfield);
 

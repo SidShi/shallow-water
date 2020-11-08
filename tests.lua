@@ -2,7 +2,7 @@
 -- Basic tests
 --
 nx = tonumber(args[2]) or 200
-vskip = math.floor(nx/20)
+vskip = math.floor(nx/200)
 
 pond = {
   init = function(x,y) return 1, 0, 0 end,
