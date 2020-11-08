@@ -134,13 +134,13 @@ void central2d_periodic_full(float* restrict u,
 }
 
 void central2d_periodic(float* restrict u, const float* restrict src,
-                        int nx, int ny, int ng, int partx, int party, int px, int py, int nfield)
+                        int nx, int ny, int ngu, int ngs, int partx, int party, int px, int py, int nfield)
 {
     // Stride and number per field
-    int s = nx + 2*ng;
-    int s2 = nx*partx + 2*ng;
-    int field_stride = (ny+2*ng)*s;
-    int field_stride2 = (ny*party+2*ng)*s2;
+    int s = nx + 2*ngu;
+    int s2 = nx*partx + 2*ngs;
+    int field_stride = (ny+2*ngu)*s;
+    int field_stride2 = (ny*party+2*ngs)*s2;
 
 
     // Copy data into ghost cells on each side
@@ -153,17 +153,17 @@ void central2d_periodic(float* restrict u, const float* restrict src,
         int modyb = (py == 0? party : py);
         int modyt = (py == party-1? 0 : py+1);
 
-        copy_subgrid(uk, srck+modyb*ny*s2+modxl*nx, ng, ng, s, s2);
-        copy_subgrid(uk+ng*s, srck+(ng+py*ny)*s2+modxl*nx, ng, ny, s, s2);
-        copy_subgrid(uk+(ng+ny)*s, srck+(ng+modyt*ny)*s2+modxl*nx, ng, ng, s, s2);
+        copy_subgrid(uk, srck+modyb*ny*s2+modxl*nx, ngu, ngu, s, s2);
+        copy_subgrid(uk+ngu*s, srck+(ngs+py*ny)*s2+modxl*nx, ngu, ny, s, s2);
+        copy_subgrid(uk+(ngu+ny)*s, srck+(ngs+modyt*ny)*s2+modxl*nx, ngu, ngu, s, s2);
 
-        copy_subgrid(uk+ng, srck+modyb*ny*s2+px*nx+ng, nx, ng, s, s2);
-        copy_subgrid(uk+ng*s+ng, srck+(ng+py*ny)*s2+px*nx+ng, nx, ny, s, s2);
-        copy_subgrid(uk+(ng+ny)*s+ng, srck+(ng+modyt*ny)*s2+px*nx+ng, nx, ng, s, s2);
+        copy_subgrid(uk+ngu, srck+modyb*ny*s2+px*nx+ngs, nx, ngu, s, s2);
+        copy_subgrid(uk+ngu*s+ngu, srck+(ngs+py*ny)*s2+px*nx+ngs, nx, ny, s, s2);
+        copy_subgrid(uk+(ngu+ny)*s+ngu, srck+(ngs+modyt*ny)*s2+px*nx+ngs, nx, ngu, s, s2);
 
-        copy_subgrid(uk+ng+nx, srck+modyb*ny*s2+modxr*nx+ng, ng, ng, s, s2);
-        copy_subgrid(uk+ng*s+nx+ng, srck+(ng+py*ny)*s2+modxr*nx+ng, ng, ny, s, s2);
-        copy_subgrid(uk+(ng+ny)*s+ng+nx, srck+(ng+modyt*ny)*s2+modxr*nx+ng, ng, ng, s, s2);
+        copy_subgrid(uk+ngu+nx, srck+modyb*ny*s2+modxr*nx+ngs, ngu, ngu, s, s2);
+        copy_subgrid(uk+ngu*s+nx+ngu, srck+(ngs+py*ny)*s2+modxr*nx+ngs, ngu, ny, s, s2);
+        copy_subgrid(uk+(ngu+ny)*s+ngu+nx, srck+(ngs+modyt*ny)*s2+modxr*nx+ngs, ngu, ngu, s, s2);
 
         // copy_subgrid(uk, srck+py*ny*s2+nx*modxl, ng, ny+2*ng, s, s2);
         // print_grid(uk,nx+2*ng,ny+2*ng);
@@ -513,7 +513,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
 	          // copy_subgrid_allfield(pu+ng*sx_all+ng,u+nx_all*(ng+py*sy)+(ng+px*sx),sx,sy,pc,c,sx_all,nx_all,nfield);
 
 
-            central2d_periodic(pu, u, sx, sy, tbatch*ng, partx, party, px, py, nfield);
+            central2d_periodic(pu, u, sx, sy, tbatch*ng, ng, partx, party, px, py, nfield);
 
             // if (j == 2) {
             //     print_grid(pu, sx_all, sy_all, sx_all);
@@ -523,7 +523,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
             // print_grid(pu,sx_all,sy_all);
 
             central2d_step_batch(pu, pv, pscratch, pf, pg,
-                                 sx, sy, tbatch*ng,
+                                 sx, sy, ng,
                                  nfield, flux, speed,
                                  dt, dx, dy, tbatch);
 
