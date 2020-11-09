@@ -422,11 +422,11 @@ void central2d_step_batch(float* restrict u, float* restrict v,
 {
     for (int b = 0; b < tbatch; ++b) {
         central2d_step(u, v, scratch, f, g,
-                      0, nx+4, ny+4, ng-2,
+                      0, nx+2*(ng*tbatch-(2*b+1)*ng/2), ny+2*(ng*tbatch-(2*b+1)*ng/2), (2*b+1)*ng/2,
                       nfield, flux, speed,
                       dt, dx, dy);
         central2d_step(v, u, scratch, f, g,
-                      1, nx, ny, ng,
+                      1, nx+2*ng*(tbatch-b-1), ny+2*ng*(tbatch-b-1), ng*(b+1),
                       nfield, flux, speed,
                       dt, dx, dy);
     }
@@ -461,8 +461,8 @@ int central2d_xrun(float* restrict u, float* restrict v,
     int ny_all = ny + 2*ng;
     int c = nx_all * ny_all;
     int N = nfield * c;
-    int partx = 1;
-    int party = threads;
+    int partx = 2;
+    int party = threads/partx;
     omp_set_num_threads(threads);
     int sx = nx/partx;
     int sy = ny/party;
@@ -505,11 +505,11 @@ int central2d_xrun(float* restrict u, float* restrict v,
 
         #pragma omp parallel
         {
-                int px = 0;
+                // int px = 0;
                 int thread = omp_get_thread_num();
                 // printf("%d\n",j);
-                //int px = j % partx;
-                int py = thread;
+                int px = thread % partx;
+                int py = thread/party;
 
                 float *pv  = pu + pN;
                 float *pf  = pu+ 2*pN;
@@ -529,7 +529,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
             // print_grid(pu,sx_all,sy_all);
 
                 central2d_step_batch(pu, pv, pscratch, pf, pg,
-                                 sx, sy, ng*tbatch,
+                                 sx, sy, ng,
                                  nfield, flux, speed,
                                  dt, dx, dy, tbatch);
 
@@ -548,7 +548,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
                                   sx,sy,c,pc,nx_all,sx_all,nfield);
 
                 //free(pu);
-            
+
         }
 
 
