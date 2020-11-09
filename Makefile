@@ -13,7 +13,7 @@ src/lshallow:
 run: dam_break.gif
 
 big: src/lshallow
-	src/lshallow tests.lua dam 1000
+	src/lshallow tests.lua dam 1000 4
 
 # ===
 # Generate visualizations (animated GIF or MP4)
