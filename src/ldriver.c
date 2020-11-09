@@ -170,6 +170,7 @@ int run_sim(lua_State *L)
     lua_getfield(L, 1, "vskip");
     lua_getfield(L, 1, "frames");
     lua_getfield(L, 1, "out");
+    lua_getfield(L, 1, "threads");
 
     double w = luaL_optnumber(L, 2, 2.0);
     double h = luaL_optnumber(L, 3, w);
@@ -180,99 +181,142 @@ int run_sim(lua_State *L)
     int vskip = luaL_optinteger(L, 8, 1);
     int frames = luaL_optinteger(L, 9, 50);
     const char *fname = luaL_optstring(L, 10, "sim.out");
+    int threads = luaL_optinteger(L, 11, -1);
     lua_pop(L, 9);
     setvbuf(stdout, NULL, _IONBF, 0);
-    printf("Begin strong scaling\n");
-    for (int threads = 1; threads <= 64; threads *= 2)
+
+    printf("%i\n",threads);
+    if (threads == -1)
     {
-        double avg_time = 0.0;
-        for (int k = 0; k < 3; k++)
+        printf("Begin strong scaling\n");
+        for (int threads = 1; threads <= 64; threads *= 2)
         {
-            central2d_t *sim = central2d_init(w, h, nx, ny,
-                                              3, shallow2d_flux, shallow2d_speed, cfl);
-            lua_init_sim(L, sim);
-            // printf("%g %g %d %d %g %d %g\n", w, h, nx, ny, cfl, frames, ftime);
-            //FILE* viz = viz_open(fname, sim, vskip);
-            //solution_check(sim);
-            //viz_frame(viz, sim, vskip);
-
-            double tcompute = 0;
-            for (int i = 0; i < frames; ++i)
+            double avg_time = 0.0;
+            for (int k = 0; k < 3; k++)
             {
-#ifdef _OPENMP
-                double t0 = omp_get_wtime();
-                int nstep = central2d_run(sim, ftime, threads);
-                double t1 = omp_get_wtime();
-                double elapsed = t1 - t0;
-#elif defined SYSTIME
-                struct timeval t0, t1;
-                gettimeofday(&t0, NULL);
-                int nstep = central2d_run(sim, ftime, threads);
-                gettimeofday(&t1, NULL);
-                double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_usec - t0.tv_usec) * 1e-6;
-#else
-                int nstep = central2d_run(sim, ftime, threads);
-                double elapsed = 0;
-#endif
+                central2d_t *sim = central2d_init(w, h, nx, ny,
+                                                  3, shallow2d_flux, shallow2d_speed, cfl);
+                lua_init_sim(L, sim);
+                // printf("%g %g %d %d %g %d %g\n", w, h, nx, ny, cfl, frames, ftime);
+                //FILE* viz = viz_open(fname, sim, vskip);
                 //solution_check(sim);
-                tcompute += elapsed;
-                //printf("  Time: %e (%e for %d steps)\n", elapsed, elapsed/nstep, nstep);
                 //viz_frame(viz, sim, vskip);
-            }
-            avg_time += tcompute;
 
-            //viz_close(viz);
-            central2d_free(sim);
+                double tcompute = 0;
+                for (int i = 0; i < frames; ++i)
+                {
+#ifdef _OPENMP
+                    double t0 = omp_get_wtime();
+                    int nstep = central2d_run(sim, ftime, threads);
+                    double t1 = omp_get_wtime();
+                    double elapsed = t1 - t0;
+#elif defined SYSTIME
+                    struct timeval t0, t1;
+                    gettimeofday(&t0, NULL);
+                    int nstep = central2d_run(sim, ftime, threads);
+                    gettimeofday(&t1, NULL);
+                    double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_usec - t0.tv_usec) * 1e-6;
+#else
+                    int nstep = central2d_run(sim, ftime, threads);
+                    double elapsed = 0;
+#endif
+                    // solution_check(sim);
+                    tcompute += elapsed;
+                    //printf("  Time: %e (%e for %d steps)\n", elapsed, elapsed/nstep, nstep);
+                    //viz_frame(viz, sim, vskip);
+                }
+                avg_time += tcompute;
+
+                //viz_close(viz);
+                central2d_free(sim);
+            }
+            avg_time /= 3.0;
+            printf("Threads %i: Height: %i, Average compute time: %e\n", threads, ny, avg_time);
         }
-        avg_time /= 3.0;
-        printf("Threads %i: Height: %i, Average compute time: %e\n", threads, ny, avg_time);
+        printf("Begin weak scaling\n");
+        for (int threads = 1; threads <= 64; threads *= 2)
+        {
+            double avg_time = 0.0;
+            for (int k = 0; k < 3; k++)
+            {
+                central2d_t *sim = central2d_init(w, h, nx, ny,
+                                                  3, shallow2d_flux, shallow2d_speed, cfl);
+                lua_init_sim(L, sim);
+                // printf("%g %g %d %d %g %d %g\n", w, h, nx, ny, cfl, frames, ftime);
+                //FILE* viz = viz_open(fname, sim, vskip);
+                //solution_check(sim);
+                //viz_frame(viz, sim, vskip);
+
+                double tcompute = 0;
+                for (int i = 0; i < frames; ++i)
+                {
+#ifdef _OPENMP
+                    double t0 = omp_get_wtime();
+                    int nstep = central2d_run(sim, ftime, threads);
+                    double t1 = omp_get_wtime();
+                    double elapsed = t1 - t0;
+#elif defined SYSTIME
+                    struct timeval t0, t1;
+                    gettimeofday(&t0, NULL);
+                    int nstep = central2d_run(sim, ftime, threads);
+                    gettimeofday(&t1, NULL);
+                    double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_usec - t0.tv_usec) * 1e-6;
+#else
+                    int nstep = central2d_run(sim, ftime, threads);
+                    double elapsed = 0;
+#endif
+                    //solution_check(sim);
+                    tcompute += elapsed;
+                    //printf("  Time: %e (%e for %d steps)\n", elapsed, elapsed/nstep, nstep);
+                    //viz_frame(viz, sim, vskip);
+                }
+                avg_time += tcompute;
+
+                //viz_close(viz);
+                central2d_free(sim);
+            }
+            avg_time /= 3.0;
+            printf("Threads %i: Height: %i, Average compute time: %e\n", threads, ny, avg_time);
+            ny *= 2;
+        }
     }
-    printf("Begin weak scaling\n");
-    for (int threads = 1; threads <= 64; threads *= 2)
+    else
     {
-        double avg_time = 0.0;
-        for (int k = 0; k < 3; k++)
+        central2d_t *sim = central2d_init(w, h, nx, ny,
+                                          3, shallow2d_flux, shallow2d_speed, cfl);
+        lua_init_sim(L, sim);
+        printf("%g %g %d %d %g %d %g\n", w, h, nx, ny, cfl, frames, ftime);
+        FILE *viz = viz_open(fname, sim, vskip);
+        solution_check(sim);
+        viz_frame(viz, sim, vskip);
+
+        double tcompute = 0;
+        for (int i = 0; i < frames; ++i)
         {
-            central2d_t *sim = central2d_init(w, h, nx, ny,
-                                              3, shallow2d_flux, shallow2d_speed, cfl);
-            lua_init_sim(L, sim);
-            // printf("%g %g %d %d %g %d %g\n", w, h, nx, ny, cfl, frames, ftime);
-            //FILE* viz = viz_open(fname, sim, vskip);
-            //solution_check(sim);
-            //viz_frame(viz, sim, vskip);
-
-            double tcompute = 0;
-            for (int i = 0; i < frames; ++i)
-            {
 #ifdef _OPENMP
-                double t0 = omp_get_wtime();
-                int nstep = central2d_run(sim, ftime, threads);
-                double t1 = omp_get_wtime();
-                double elapsed = t1 - t0;
+            double t0 = omp_get_wtime();
+            int nstep = central2d_run(sim, ftime, threads);
+            double t1 = omp_get_wtime();
+            double elapsed = t1 - t0;
 #elif defined SYSTIME
-                struct timeval t0, t1;
-                gettimeofday(&t0, NULL);
-                int nstep = central2d_run(sim, ftime, threads);
-                gettimeofday(&t1, NULL);
-                double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_usec - t0.tv_usec) * 1e-6;
+            struct timeval t0, t1;
+            gettimeofday(&t0, NULL);
+            int nstep = central2d_run(sim, ftime, threads);
+            gettimeofday(&t1, NULL);
+            double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_usec - t0.tv_usec) * 1e-6;
 #else
-                int nstep = central2d_run(sim, ftime, threads);
-                double elapsed = 0;
+            int nstep = central2d_run(sim, ftime, threads);
+            double elapsed = 0;
 #endif
-                //solution_check(sim);
-                tcompute += elapsed;
-                //printf("  Time: %e (%e for %d steps)\n", elapsed, elapsed/nstep, nstep);
-                //viz_frame(viz, sim, vskip);
-            }
-            avg_time += tcompute;
+            solution_check(sim);
+            tcompute += elapsed;
+            printf("  Time: %e (%e for %d steps)\n", elapsed, elapsed / nstep, nstep);
+            viz_frame(viz, sim, vskip);
 
-            //viz_close(viz);
-            central2d_free(sim);
         }
-        avg_time /= 3.0;
-        printf("Threads %i: Height: %i, Average compute time: %e\n", threads, ny, avg_time);
-        ny *= 2;
-    } 
+        central2d_free(sim);
+        viz_close(viz);
+    }
     return 0;
 }
 
