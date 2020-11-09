@@ -178,7 +178,8 @@ int run_sim(lua_State* L)
     int frames   = luaL_optinteger(L, 9, 50);
     const char* fname = luaL_optstring(L, 10, "sim.out");
     lua_pop(L, 9);
-
+    setvbuf(stdout, NULL, _IONBF, 0);
+    printf("Begin strong scaling\n");
     for (int threads = 1; threads <= 32; threads *= 2 ){
         central2d_t* sim = central2d_init(w,h, nx,ny,
                                           3, shallow2d_flux, shallow2d_speed, cfl);
@@ -215,7 +216,7 @@ int run_sim(lua_State* L)
         //viz_close(viz);
         central2d_free(sim);
     }
-
+    printf("Begin weak scaling\n");
     for (int threads = 1; threads <= 32; threads *= 2 ){
         central2d_t* sim = central2d_init(w,h, nx,ny,
                                           3, shallow2d_flux, shallow2d_speed, cfl);
