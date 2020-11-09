@@ -422,11 +422,11 @@ void central2d_step_batch(float* restrict u, float* restrict v,
 {
     for (int b = 0; b < tbatch; ++b) {
         central2d_step(u, v, scratch, f, g,
-                      0, nx+4, ny+4, ng-2,
-                      nfield, flux, speed,
+                      0, nx+2*(ng*tbatch-(2*b+1)*ng/2), ny+2*(ng*tbatch-(2*b+1)*ng/2),
+                      (2*b+1)*ng/2, nfield, flux, speed,
                       dt, dx, dy);
         central2d_step(v, u, scratch, f, g,
-                      1, nx, ny, ng,
+                      1, nx+2*ng*(tbatch-b-1), ny+2*ng*(tbatch-b-1), ng*(b+1),
                       nfield, flux, speed,
                       dt, dx, dy);
     }
@@ -456,13 +456,13 @@ int central2d_xrun(float* restrict u, float* restrict v,
                    float tfinal, float dx, float dy, float cfl, int threads)
 {
     int nstep = 0;
-    int tbatch = 1;
+    int tbatch = 2;
     int nx_all = nx + 2*ng;
     int ny_all = ny + 2*ng;
     int c = nx_all * ny_all;
     int N = nfield * c;
-    int partx = 1;
-    int party = threads;
+    int partx = 2;
+    int party = threads/2;
     omp_set_num_threads(threads);
     int sx = nx/partx;
     int sy = ny/party;
@@ -526,7 +526,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
             // print_grid(pu,sx_all,sy_all);
 
                 central2d_step_batch(pu, pv, pscratch, pf, pg,
-                                 sx, sy, ng*tbatch,
+                                 sx, sy, ng,
                                  nfield, flux, speed,
                                  dt, dx, dy, tbatch);
 
