@@ -453,17 +453,17 @@ int central2d_xrun(float* restrict u, float* restrict v,
                    float* restrict g,
                    int nx, int ny, int ng,
                    int nfield, flux_t flux, speed_t speed,
-                   float tfinal, float dx, float dy, float cfl)
+                   float tfinal, float dx, float dy, float cfl, int threads)
 {
     int nstep = 0;
-    int tbatch = 3;
+    int tbatch = 1;
     int nx_all = nx + 2*ng;
     int ny_all = ny + 2*ng;
     int c = nx_all * ny_all;
     int N = nfield * c;
-    int partx = 2;
-    int party = 2;
-    omp_set_num_threads(partx*party);
+    int partx = fmax(1, threads/2);
+    int party = fmax(1, threads/2);
+    omp_set_num_threads(threads);
     int sx = nx/partx;
     int sy = ny/party;
     int sx_all = sx + 2*tbatch*ng;
@@ -498,24 +498,25 @@ int central2d_xrun(float* restrict u, float* restrict v,
             done = true;
         }
 
-        #pragma omp parallel
-        {
-            int j = omp_get_thread_num();
-            // printf("%d\n",j);
-            int px = j % partx;
-            int py = j/party;
+        #pragma omp parallel for collapse(2)
+        for (int py = 0; py < party; py++){
+            for (int px = 0; px < partx; px++) {
+                //int j = omp_get_thread_num();
+                // printf("%d\n",j);
+                //int px = j % partx;
+                //int py = j/party;
 
-            float* pu  = (float*) malloc((4*pN + 6*sx_all)* sizeof(float));
-            float* pv  = pu + pN;
-            float* pf  = pu + 2*pN;
-            float* pg  = pu + 3*pN;
-            float* pscratch = pu + 4*pN;
+                float* pu  = (float*) malloc((4*pN + 6*sx_all)* sizeof(float));
+                float* pv  = pu + pN;
+                float* pf  = pu + 2*pN;
+                float* pg  = pu + 3*pN;
+                float* pscratch = pu + 4*pN;
 
 
 	          // copy_subgrid_allfield(pu+ng*sx_all+ng,u+nx_all*(ng+py*sy)+(ng+px*sx),sx,sy,pc,c,sx_all,nx_all,nfield);
 
 
-            central2d_periodic(pu, u, sx, sy, ng, partx, party, px, py, nfield, tbatch);
+                central2d_periodic(pu, u, sx, sy, ng, partx, party, px, py, nfield, tbatch);
 
             // if (j == 2) {
             //     print_grid(pu, sx_all, sy_all, sx_all);
@@ -524,7 +525,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
 
             // print_grid(pu,sx_all,sy_all);
 
-            central2d_step_batch(pu, pv, pscratch, pf, pg,
+                central2d_step_batch(pu, pv, pscratch, pf, pg,
                                  sx, sy, ng*tbatch,
                                  nfield, flux, speed,
                                  dt, dx, dy, tbatch);
@@ -537,13 +538,14 @@ int central2d_xrun(float* restrict u, float* restrict v,
             //               1, sx, sy, ng,
             //               nfield, flux, speed,
             //               dt, dx, dy);
-            #pragma omp barrier
+                //#pragma omp barrier
 
 
-            copy_subgrid_allfield(u+nx_all*(ng+py*sy)+(ng+px*sx),pu+tbatch*ng*sx_all+ng*tbatch,
+                copy_subgrid_allfield(u+nx_all*(ng+py*sy)+(ng+px*sx),pu+tbatch*ng*sx_all+ng*tbatch,
                                   sx,sy,c,pc,nx_all,sx_all,nfield);
 
-            free(pu);
+                free(pu);
+            }
         }
 
 
@@ -561,11 +563,11 @@ int central2d_xrun(float* restrict u, float* restrict v,
 }
 
 
-int central2d_run(central2d_t* sim, float tfinal)
+int central2d_run(central2d_t* sim, float tfinal, int threads)
 {
     return central2d_xrun(sim->u, sim->v, sim->scratch,
                           sim->f, sim->g,
                           sim->nx, sim->ny, sim->ng,
                           sim->nfield, sim->flux, sim->speed,
-                          tfinal, sim->dx, sim->dy, sim->cfl);
+                          tfinal, sim->dx, sim->dy, sim->cfl, threads);
 }
