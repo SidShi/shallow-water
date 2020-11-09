@@ -1,6 +1,7 @@
 #include <string.h>
 #include <math.h>
 #include <omp.h>
+#include <limits.h>
 
 //ldoc on
 /**
@@ -55,7 +56,12 @@ void shallow2dv_speed(float* restrict cxy,
 {
     float cx = cxy[0];
     float cy = cxy[1];
-    #pragma omp parallel for reduction(max:cx,cy)
+
+    #pragma omp declare reduction \
+    (fmaxf:float:omp_out=fmaxf(omp_out,omp_in)) \
+    initializer(omp_priv=INT_MIN)
+
+    #pragma omp parallel for reduction(fmaxf: cx,cy)
     for (int i = 0; i < ncell; ++i) {
         float hi = h[i];
         if (fabsf(hi) < 0.00001) {
