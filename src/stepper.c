@@ -461,8 +461,8 @@ int central2d_xrun(float* restrict u, float* restrict v,
     int ny_all = ny + 2*ng;
     int c = nx_all * ny_all;
     int N = nfield * c;
-    int partx = fmax(1, threads/2);
-    int party = fmax(1, threads/2);
+    int partx = 1;
+    int party = threads;
     omp_set_num_threads(threads);
     int sx = nx/partx;
     int sy = ny/party;
