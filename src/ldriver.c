@@ -13,6 +13,7 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <gperftools/profiler.h>
 
 //ldoc on
 /**
@@ -188,8 +189,9 @@ int run_sim(lua_State *L)
     printf("%i\n",threads);
     if (threads == -1)
     {
+        ProfilerStart("shallow.prof");
         printf("Begin strong scaling\n");
-        for (int threads = 1; threads <= 64; threads *= 2)
+        for (int threads = 1; threads <= 8; threads *= 2)
         {
             double avg_time = 0.0;
             for (int k = 0; k < 3; k++)
@@ -234,7 +236,7 @@ int run_sim(lua_State *L)
             printf("Threads %i: Height: %i, Average compute time: %e\n", threads, ny, avg_time);
         }
         printf("Begin weak scaling\n");
-        for (int threads = 1; threads <= 64; threads *= 2)
+        for (int threads = 1; threads <= 8; threads *= 2)
         {
             double avg_time = 0.0;
             for (int k = 0; k < 3; k++)
@@ -279,6 +281,7 @@ int run_sim(lua_State *L)
             printf("Threads %i: Height: %i, Average compute time: %e\n", threads, ny, avg_time);
             ny *= 2;
         }
+        ProfilerStop();
     }
     else
     {
