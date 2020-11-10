@@ -8,6 +8,8 @@
 #include <omp.h>
 #include <stdio.h>
 
+#define BLOCK_SIZE 4
+
 //ldoc on
 /**
  * ## Implementation
@@ -456,13 +458,13 @@ int central2d_xrun(float* restrict u, float* restrict v,
                    float tfinal, float dx, float dy, float cfl, int threads)
 {
     int nstep = 0;
-    int tbatch = 2;
+    int tbatch = 1;
     int nx_all = nx + 2*ng;
     int ny_all = ny + 2*ng;
     int c = nx_all * ny_all;
     int N = nfield * c;
     int partx = 2;
-    int party = fmaxf(1, threads/partx);
+    int party = fmaxf(1, BLOCK_SIZE*threads/partx);
     omp_set_num_threads(threads);
     int sx = nx/partx;
     int sy = ny/party;
@@ -484,7 +486,8 @@ int central2d_xrun(float* restrict u, float* restrict v,
 
     // int pt = 100;
     // print_grid(u+nx_all*(ng+pt)+ng+pt, 10, 10, nx_all);
-    static float* pu;
+
+    static float *pu; 
     #pragma omp threadprivate(pu)
     #pragma omp parallel
     {
@@ -503,13 +506,13 @@ int central2d_xrun(float* restrict u, float* restrict v,
             done = true;
         }
 
-        #pragma omp parallel
-        {
+        #pragma omp parallel for collapse(2)
+        for (int py = 0; py < party; py++) {
+            for (int px = 0; px < partx; px++) {
                 // int px = 0;
                 int thread = omp_get_thread_num();
                 // printf("%d\n",j);
-                int px = thread % partx;
-                int py = thread/party;
+                //int px = 0;
 
                 float *pv  = pu + pN;
                 float *pf  = pu+ 2*pN;
@@ -541,14 +544,14 @@ int central2d_xrun(float* restrict u, float* restrict v,
             //               1, sx, sy, ng,
             //               nfield, flux, speed,
             //               dt, dx, dy);
-            #pragma omp barrier
+            //#pragma omp barrier
 
 
                 copy_subgrid_allfield(u+nx_all*(ng+py*sy)+(ng+px*sx),pu+tbatch*ng*sx_all+ng*tbatch,
                                   sx,sy,c,pc,nx_all,sx_all,nfield);
 
                 //free(pu);
-
+            }
         }
 
 
@@ -561,10 +564,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
         // print_grid(u+nx_all*ng+ng+c, nx, ny, nx_all);
     }
 
-#pragma omp parallel
-{
-    free(pu);
-}
+
     // int pt = 40;
     // print_grid(u+nx_all*(ng+pt)+ng+pt, 20, 20, nx_all);
     return nstep;
