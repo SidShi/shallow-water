@@ -34,10 +34,10 @@ wave.mp4: wave.out
 # Generate output files
 
 dam_break.out: src/lshallow
-	src/lshallow tests.lua dam
+	src/lshallow tests.lua dam 200 4
 
 wave.out: src/lshallow
-	src/lshallow tests.lua wave
+	src/lshallow tests.lua wave 200 4
 
 # ===
 # Generate documentation

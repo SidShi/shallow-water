@@ -2,10 +2,19 @@
 
 ![Dam break simulation](https://github.com/cs5220-f20/shallow-water/blob/main/img/dam_break.gif)
 
-Please refer to the [online assignment intro][intro] or the
-[annotated source][annotated].  If you would also like to see a C++
-version, refer to the [Fall 2017][f17] variant of this assignment.
+Running the Shallow Water Simulation:
 
-[f17]: https://github.com/cornell-cs5220-f17/water-cuda
-[intro]: https://github.com/cs5220-f20/shallow-water/blob/main/doc/intro.md
-[annotated]: https://github.com/cs5220-f20/shallow-water/blob/main/doc/shallow.pdf
+To perform our experiments, we modified the arguments for the simulator. 
+
+Here is how to run the simulator without running the scaling experiments:
+
+`src/lshallow tests.lua NAME NY N`, where `N` is the number of threads to use during a normal run.
+
+To run the scaling experiments, simply run
+`src/lshallow tests.lua NAME NY`. If the number of threads isn't provided, we assume that you plan on running the strong and weak scaling experiments. `NY` is the value for `ny` used at the beginning of the experiments.
+
+The scaling experiments aren't configurable without modifying code. Currently, they iterate between `1` and `32` threads. For the weak scaling experiments,
+the number of threads and `ny` doubles each iteration.
+
+If you plan on running the scaling experiments in Graphite, we provide a `experiments.sub` file that's configured to run on the dam break simulation with `NY = 1000`.
+We request exclusive access to `4` nodes in Graphite as well.

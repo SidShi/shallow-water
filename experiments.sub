@@ -3,7 +3,7 @@
 #SBATCH -o experiments_%j.out                  # Name of stdout output log file (%j expands to jobID)
 #SBATCH -e experiments_%j.err                  # Name of stderr output log file (%j expands to jobID)
 #SBATCH --exclusive
-#SBATCH --nodes=2
+#SBATCH --nodes=4
 #SBATCH --mem=1500                          # Total amount of (real) memory requested (per node)
 #SBATCH -t 01:00:00                          # Time limit (hh:mm:ss)
 #SBATCH --partition=cs5220             # Request partition for resource allocation
