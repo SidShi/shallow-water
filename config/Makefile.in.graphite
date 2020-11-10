@@ -16,4 +16,4 @@ LUA_CFLAGS=`pkg-config lua52 --cflags`
 LUA_LIBS=`pkg-config lua52 --libs`
 
 # Other necessary libraries
-LIBS=-fopenmp -lm
+LIBS=-fopenmp -lm -lprofiler

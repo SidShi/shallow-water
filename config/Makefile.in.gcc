@@ -12,7 +12,7 @@ NVCC=nvcc
 NVCCFLAGS=-O3 -std=c99
 
 # Optimization flags
-OPTFLAGS=-O3 -march=native -fopenmp -ffast-math
+OPTFLAGS= -O3 -march=native -fopenmp -ffast-math
 CFLAGS+=$(OPTFLAGS)
 CXXFLAGS+=$(OPTFLAGS)
 
@@ -24,4 +24,4 @@ LUA_CFLAGS=`pkg-config lua53 --cflags`
 LUA_LIBS=`pkg-config lua53 --libs`
 
 # Other necessary libraries
-LIBS=-lm
+LIBS=-lm -lprofiler
