@@ -563,7 +563,10 @@ int central2d_xrun(float* restrict u, float* restrict v,
         nstep += 2*tbatch;
         // print_grid(u+nx_all*ng+ng+c, nx, ny, nx_all);
     }
-
+#pragma omp parallel
+{
+    free(pu);
+}
 
     // int pt = 40;
     // print_grid(u+nx_all*(ng+pt)+ng+pt, 20, 20, nx_all);
