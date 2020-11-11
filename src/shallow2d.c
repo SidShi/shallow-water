@@ -71,9 +71,7 @@ void shallow2dv_speed(float* restrict cxy,
         float root_gh = sqrtf(g * hi);
         float cxi = fabsf(hu[i] * inv_hi) + root_gh;
         float cyi = fabsf(hv[i] * inv_hi) + root_gh;
-        // if (cx < cxi) cx = cxi;
         cx = fmaxf(cx,cxi);
-        // if (cy < cyi) cy = cyi;
         cy = fmaxf(cy,cyi);
     }
     cxy[0] = cx;

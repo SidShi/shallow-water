@@ -168,15 +168,6 @@ void central2d_periodic(float* restrict u, const float* restrict src,
         copy_subgrid(uk+ngu+nx, srck+(modyb*ny-backng)*s2+modxr*nx+ng, ngu, ngu, s, s2);
         copy_subgrid(uk+ngu*s+nx+ngu, srck+(ng+py*ny)*s2+modxr*nx+ng, ngu, ny, s, s2);
         copy_subgrid(uk+(ngu+ny)*s+ngu+nx, srck+(ng+modyt*ny)*s2+modxr*nx+ng, ngu, ngu, s, s2);
-
-        // copy_subgrid(uk, srck+py*ny*s2+nx*modxl, ng, ny+2*ng, s, s2);
-        // print_grid(uk,nx+2*ng,ny+2*ng);
-        // copy_subgrid(uk+nx+ng, srck+py*ny*s2+ng+nx*modxr, ng, ny+2*ng, s, s2);
-        // print_grid(uk,nx+2*ng,ny+2*ng);
-        // copy_subgrid(uk+(nx+ng)*s, srck+(ny*modyt+ng)*s2+px*nx, nx+2*ng, ng, s, s2);
-        // print_grid(uk,nx+2*ng,ny+2*ng);
-        // copy_subgrid(uk, srck+ny*s2*modyb+px*nx, nx+2*ng, ng, s, s2);
-        // print_grid(uk,nx+2*ng,ny+2*ng);
     }
 }
 
@@ -475,19 +466,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
     bool done = false;
     float t = 0;
 
-    // central2d_periodic_full(u, nx, ny, ng, nfield);
-    // print_grid(u, nx_all, ny_all);
-    //
-    // float* tu  = (float*) malloc(pN* sizeof(float));
-    // copy_subgrid_allfield(tu+ng*sx_all+ng,u+nx_all*(ng+0*sy)+(ng+1*sx),sx,sy,pc,c,sx_all,nx_all,nfield);
-    // central2d_periodic(tu, u, sx, sy, ng, partx, party, 0, 0, nfield);
-    // print_grid(tu, sx_all, sy_all);
-    // free(tu);
-
-    // int pt = 100;
-    // print_grid(u+nx_all*(ng+pt)+ng+pt, 10, 10, nx_all);
-
-    static float *pu; 
+    static float *pu;
     #pragma omp threadprivate(pu)
     #pragma omp parallel
     {
@@ -499,8 +478,6 @@ int central2d_xrun(float* restrict u, float* restrict v,
         speed(cxy, u, nx_all * ny_all, nx_all * ny_all);
 
         float dt = cfl / fmaxf(cxy[0]/dx, cxy[1]/dy);
-        // printf("%g\n", fmaxf(cxy[0]/dx, cxy[1]/dy));
-        // printf("%.2g ",dt);
         if (t + 2*tbatch*dt >= tfinal) {
             dt = (tfinal-t)/2/tbatch;
             done = true;
@@ -509,67 +486,32 @@ int central2d_xrun(float* restrict u, float* restrict v,
         #pragma omp parallel for collapse(2)
         for (int py = 0; py < party; py++) {
             for (int px = 0; px < partx; px++) {
-                // int px = 0;
                 int thread = omp_get_thread_num();
-                // printf("%d\n",j);
-                //int px = 0;
-
                 float *pv  = pu + pN;
                 float *pf  = pu+ 2*pN;
                 float *pg  = pu + 3*pN;
                 float *pscratch = pu + 4*pN;
 
-	          // copy_subgrid_allfield(pu+ng*sx_all+ng,u+nx_all*(ng+py*sy)+(ng+px*sx),sx,sy,pc,c,sx_all,nx_all,nfield);
-
-
                 central2d_periodic(pu, u, sx, sy, ng, partx, party, px, py, nfield, tbatch);
-
-            // if (j == 2) {
-            //     print_grid(pu, sx_all, sy_all, sx_all);
-            // }
-
-
-            // print_grid(pu,sx_all,sy_all);
 
                 central2d_step_batch(pu, pv, pscratch, pf, pg,
                                  sx, sy, ng,
                                  nfield, flux, speed,
                                  dt, dx, dy, tbatch);
 
-            // central2d_step(pu, pv, pscratch, pf, pg,
-            //               0, sx+4, sy+4, ng-2,
-            //               nfield, flux, speed,
-            //               dt, dx, dy);
-            // central2d_step(pv, pu, pscratch, pf, pg,
-            //               1, sx, sy, ng,
-            //               nfield, flux, speed,
-            //               dt, dx, dy);
-            //#pragma omp barrier
-
-
                 copy_subgrid_allfield(u+nx_all*(ng+py*sy)+(ng+px*sx),pu+tbatch*ng*sx_all+ng*tbatch,
                                   sx,sy,c,pc,nx_all,sx_all,nfield);
-
-                //free(pu);
             }
         }
 
-
-        // print_grid(u,20,20,nx_all);
-
-        // central2d_periodic_full(u, nx, ny, ng, nfield);
-
         t += 2*dt*tbatch;
         nstep += 2*tbatch;
-        // print_grid(u+nx_all*ng+ng+c, nx, ny, nx_all);
     }
-#pragma omp parallel
-{
-    free(pu);
-}
+    #pragma omp parallel
+    {
+        free(pu);
+    }
 
-    // int pt = 40;
-    // print_grid(u+nx_all*(ng+pt)+ng+pt, 20, 20, nx_all);
     return nstep;
 }
 
